@@ -14,6 +14,7 @@ import Bookings from "@/pages/Bookings";
 import AdminBookings from "@/pages/admin/AdminBookings";
 import UserManagement from "@/pages/admin/UserManagement";
 import NotFound from "./pages/NotFound";
+import Index from "./pages/Index";
 
 const queryClient = new QueryClient();
 
@@ -54,8 +55,8 @@ const App = () => (
                 </ProtectedRoute>
               } />
               
-              {/* Redirects */}
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              {/* Root Route - Now points to Index component */}
+              <Route path="/" element={<Index />} />
               
               {/* Catch-all Route */}
               <Route path="*" element={<NotFound />} />

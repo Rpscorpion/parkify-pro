@@ -13,8 +13,8 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-// Mock user data for demonstration
-const MOCK_USERS = [
+// Initial mock users
+const INITIAL_MOCK_USERS = [
   {
     id: '1',
     email: 'admin@parkify.com',
@@ -34,13 +34,21 @@ const MOCK_USERS = [
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [registeredUsers, setRegisteredUsers] = useState<Array<any>>([]);
 
   useEffect(() => {
     // Check if user is stored in localStorage
     const storedUser = localStorage.getItem('parkifyUser');
+    const storedUsers = localStorage.getItem('parkifyRegisteredUsers');
+    
     if (storedUser) {
       setUser(JSON.parse(storedUser));
     }
+    
+    if (storedUsers) {
+      setRegisteredUsers(JSON.parse(storedUsers));
+    }
+    
     setIsLoading(false);
   }, []);
 
@@ -50,7 +58,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      const foundUser = MOCK_USERS.find(u => u.email === email && u.password === password);
+      // First check initial mock users
+      let foundUser = INITIAL_MOCK_USERS.find(u => u.email === email && u.password === password);
+      
+      // If not found in initial users, check registered users
+      if (!foundUser && registeredUsers.length > 0) {
+        foundUser = registeredUsers.find(u => u.email === email && u.password === password);
+      }
       
       if (foundUser) {
         const { password, ...userWithoutPassword } = foundUser;
@@ -74,22 +88,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Check if email already exists
-      const exists = MOCK_USERS.some(u => u.email === email);
-      if (exists) {
+      // Check if email already exists in initial mock users
+      const existsInMock = INITIAL_MOCK_USERS.some(u => u.email === email);
+      
+      // Check if email already exists in registered users
+      const existsInRegistered = registeredUsers.some(u => u.email === email);
+      
+      if (existsInMock || existsInRegistered) {
         throw new Error('Email already in use');
       }
 
-      // In a real application, this would be done on the server
+      // Create new user
       const newUser = {
         id: `user-${Date.now()}`,
         email,
+        password,
         name,
         role: 'user' as const
       };
 
-      setUser(newUser);
-      localStorage.setItem('parkifyUser', JSON.stringify(newUser));
+      // Add to registered users
+      const updatedUsers = [...registeredUsers, newUser];
+      setRegisteredUsers(updatedUsers);
+      
+      // Store the updated users list
+      localStorage.setItem('parkifyRegisteredUsers', JSON.stringify(updatedUsers));
+      
+      // Store the user without password for current session
+      const { password: _, ...userWithoutPassword } = newUser;
+      setUser(userWithoutPassword);
+      localStorage.setItem('parkifyUser', JSON.stringify(userWithoutPassword));
+      
       toast.success('Registration successful!');
     } catch (error) {
       toast.error((error as Error).message || 'Registration failed');

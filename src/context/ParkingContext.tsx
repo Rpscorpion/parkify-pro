@@ -10,10 +10,22 @@ interface ParkingContextType {
   bookings: Booking[];
   createBooking: (booking: Omit<Booking, 'id' | 'createdAt'>) => Promise<void>;
   updateBookingStatus: (id: string, status: 'approved' | 'rejected') => Promise<void>;
+  updateBooking: (id: string, bookingData: Partial<Booking>) => Promise<void>;
   getAreaSlots: (areaId: string) => ParkingSlot[];
   getAvailableSlots: (areaId: string, timeSlotId: string, date: string) => ParkingSlot[];
   getUserBookings: (userId: string) => Booking[];
   getAllBookings: () => Booking[];
+  addParkingArea: (area: Omit<ParkingArea, 'id'>) => Promise<void>;
+  addTimeSlot: (timeSlot: Omit<TimeSlot, 'id'>) => Promise<void>;
+  getBookingsByStatus: (status: 'pending' | 'approved' | 'rejected') => Booking[];
+  getBookingStatistics: () => {
+    totalBookings: number;
+    pending: number;
+    approved: number;
+    rejected: number;
+    bookingsByDay: { date: string; count: number }[];
+    bookingsByMonth: { month: string; count: number }[];
+  };
 }
 
 // Mock data
@@ -83,12 +95,44 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     if (storedBookings) {
       setBookings(JSON.parse(storedBookings));
     }
+    
+    const storedAreas = localStorage.getItem('parkifyAreas');
+    if (storedAreas) {
+      setParkingAreas(JSON.parse(storedAreas));
+    }
+    
+    const storedTimeSlots = localStorage.getItem('parkifyTimeSlots');
+    if (storedTimeSlots) {
+      setTimeSlots(JSON.parse(storedTimeSlots));
+    }
   }, []);
 
-  // Save bookings to localStorage whenever they change
+  // Save data to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem('parkifyBookings', JSON.stringify(bookings));
   }, [bookings]);
+  
+  useEffect(() => {
+    localStorage.setItem('parkifyAreas', JSON.stringify(parkingAreas));
+    
+    // Regenerate parking slots when areas change
+    const newSlots = [];
+    parkingAreas.forEach(area => {
+      for (let i = 1; i <= area.totalSlots; i++) {
+        newSlots.push({
+          id: `slot-${area.id}-${i}`,
+          number: i,
+          areaId: area.id,
+          isAvailable: true
+        });
+      }
+    });
+    setParkingSlots(newSlots);
+  }, [parkingAreas]);
+  
+  useEffect(() => {
+    localStorage.setItem('parkifyTimeSlots', JSON.stringify(timeSlots));
+  }, [timeSlots]);
 
   const createBooking = async (bookingData: Omit<Booking, 'id' | 'createdAt'>) => {
     // Simulate API call
@@ -116,6 +160,19 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     
     toast.success(`Booking ${status} successfully!`);
   };
+  
+  const updateBooking = async (id: string, bookingData: Partial<Booking>) => {
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    setBookings(prev => 
+      prev.map(booking => 
+        booking.id === id ? { ...booking, ...bookingData } : booking
+      )
+    );
+    
+    toast.success('Booking updated successfully!');
+  };
 
   const getAreaSlots = (areaId: string) => {
     return parkingSlots.filter(slot => slot.areaId === areaId);
@@ -142,6 +199,84 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const getAllBookings = () => {
     return bookings;
   };
+  
+  const addParkingArea = async (area: Omit<ParkingArea, 'id'>) => {
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const newArea: ParkingArea = {
+      ...area,
+      id: `area-${Date.now()}`
+    };
+    
+    setParkingAreas(prev => [...prev, newArea]);
+    toast.success('Parking area added successfully!');
+  };
+  
+  const addTimeSlot = async (timeSlot: Omit<TimeSlot, 'id'>) => {
+    // Simulate API call
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    const newTimeSlot: TimeSlot = {
+      ...timeSlot,
+      id: `time-${Date.now()}`
+    };
+    
+    setTimeSlots(prev => [...prev, newTimeSlot]);
+    toast.success('Time slot added successfully!');
+  };
+  
+  const getBookingsByStatus = (status: 'pending' | 'approved' | 'rejected') => {
+    return bookings.filter(booking => booking.status === status);
+  };
+  
+  const getBookingStatistics = () => {
+    const pending = bookings.filter(b => b.status === 'pending').length;
+    const approved = bookings.filter(b => b.status === 'approved').length;
+    const rejected = bookings.filter(b => b.status === 'rejected').length;
+    
+    // Get bookings by day for the last 7 days
+    const last7Days = [...Array(7)].map((_, i) => {
+      const date = new Date();
+      date.setDate(date.getDate() - i);
+      return date.toISOString().split('T')[0];
+    }).reverse();
+    
+    const bookingsByDay = last7Days.map(date => {
+      const count = bookings.filter(b => b.date === date).length;
+      return { date, count };
+    });
+    
+    // Get bookings by month for the last 12 months
+    const last12Months = [...Array(12)].map((_, i) => {
+      const date = new Date();
+      date.setMonth(date.getMonth() - i);
+      const month = date.toLocaleString('default', { month: 'short', year: '2-digit' });
+      return month;
+    }).reverse();
+    
+    const bookingsByMonth = last12Months.map(month => {
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const currentMonth = monthNames.findIndex(m => month.includes(m));
+      const currentYear = '20' + month.split(' ')[1]; // Convert '23 to 2023
+      
+      const count = bookings.filter(b => {
+        const bookingDate = new Date(b.date);
+        return bookingDate.getMonth() === currentMonth && bookingDate.getFullYear() === parseInt(currentYear);
+      }).length;
+      
+      return { month, count };
+    });
+    
+    return {
+      totalBookings: bookings.length,
+      pending,
+      approved,
+      rejected,
+      bookingsByDay,
+      bookingsByMonth
+    };
+  };
 
   return (
     <ParkingContext.Provider value={{
@@ -151,10 +286,15 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       bookings,
       createBooking,
       updateBookingStatus,
+      updateBooking,
       getAreaSlots,
       getAvailableSlots,
       getUserBookings,
-      getAllBookings
+      getAllBookings,
+      addParkingArea,
+      addTimeSlot,
+      getBookingsByStatus,
+      getBookingStatistics
     }}>
       {children}
     </ParkingContext.Provider>

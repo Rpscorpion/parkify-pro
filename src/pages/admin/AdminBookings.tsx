@@ -3,297 +3,352 @@ import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import { useParking } from '@/context/ParkingContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { Check, X, FileText, Printer, MapPin, Clock, Car, Edit } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Booking } from '@/types';
+import { CalendarIcon, CheckCircle, XCircle, Pencil } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
 
 const AdminBookings = () => {
-  const { getAllBookings, updateBookingStatus, updateBooking } = useParking();
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [selectedBooking, setSelectedBooking] = useState<any>(null);
-  const [modifiedSlotNumber, setModifiedSlotNumber] = useState('');
-  const [modifiedStatus, setModifiedStatus] = useState('');
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  
-  const bookings = getAllBookings();
-  
-  const filteredBookings = bookings.filter(booking => {
-    const matchesSearch = 
-      booking.userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.areaName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      booking.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (booking.vehicleNumber && booking.vehicleNumber.toLowerCase().includes(searchTerm.toLowerCase()));
-      
-    const matchesStatus = filterStatus === 'all' || booking.status === filterStatus;
-    
-    return matchesSearch && matchesStatus;
+  const { bookings, parkingAreas, timeSlots, updateBookingStatus, updateBooking } = useParking();
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editForm, setEditForm] = useState({
+    areaId: '',
+    timeSlotId: '',
+    date: '',
+    status: '' as 'pending' | 'approved' | 'rejected',
+    vehicleNumber: ''
   });
-  
-  const handleStatusUpdate = async (id: string, status: 'approved' | 'rejected') => {
-    try {
-      await updateBookingStatus(id, status);
-    } catch (error) {
-      console.error('Status update failed:', error);
-    }
-  };
-  
-  const handleModify = (booking: any) => {
-    setSelectedBooking(booking);
-    setModifiedSlotNumber(booking.slotNumber.toString());
-    setModifiedStatus(booking.status);
-    setIsDialogOpen(true);
-  };
-  
-  const handleSaveModifications = async () => {
-    if (selectedBooking) {
-      try {
-        await updateBooking(selectedBooking.id, {
-          ...selectedBooking,
-          slotNumber: parseInt(modifiedSlotNumber),
-          status: modifiedStatus as 'pending' | 'approved' | 'rejected'
-        });
-        setIsDialogOpen(false);
-      } catch (error) {
-        console.error('Modification failed:', error);
-      }
-    }
-  };
-  
-  const printBookings = () => {
-    const element = document.getElementById('bookings-for-print');
-    if (!element) return;
 
+  const handleStatusChange = async (bookingId: string, status: 'approved' | 'rejected') => {
+    await updateBookingStatus(bookingId, status);
+  };
+
+  const handleEdit = (booking: Booking) => {
+    setSelectedBooking(booking);
+    setEditForm({
+      areaId: booking.areaId,
+      timeSlotId: booking.timeSlotId,
+      date: booking.date,
+      status: booking.status,
+      vehicleNumber: booking.vehicleNumber || ''
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (selectedBooking) {
+      const selectedArea = parkingAreas.find(area => area.id === editForm.areaId);
+      const selectedTimeSlot = timeSlots.find(slot => slot.id === editForm.timeSlotId);
+      
+      if (!selectedArea || !selectedTimeSlot) return;
+      
+      const updatedBooking: Partial<Booking> = {
+        areaId: editForm.areaId,
+        areaName: selectedArea.name,
+        timeSlotId: editForm.timeSlotId,
+        startTime: selectedTimeSlot.startTime,
+        endTime: selectedTimeSlot.endTime,
+        date: editForm.date,
+        status: editForm.status,
+        vehicleNumber: editForm.vehicleNumber,
+        totalAmount: selectedArea.pricePerHour * 
+          ((parseInt(selectedTimeSlot.endTime.split(':')[0]) - parseInt(selectedTimeSlot.startTime.split(':')[0])))
+      };
+      
+      await updateBooking(selectedBooking.id, updatedBooking);
+      setIsEditModalOpen(false);
+    }
+  };
+  
+  const generatePDF = (booking: Booking) => {
+    const element = document.createElement('div');
+    element.innerHTML = `
+      <div style="padding: 20px; max-width: 800px; margin: 0 auto; font-family: Arial, sans-serif;">
+        <h1 style="text-align: center; color: #4f46e5;">ParkifyPro - Booking Details</h1>
+        <div style="border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-top: 20px;">
+          <h2 style="border-bottom: 1px solid #e5e7eb; padding-bottom: 10px;">Booking #${booking.id}</h2>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-weight: bold;">User</td>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${booking.userName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-weight: bold;">Parking Area</td>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${booking.areaName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-weight: bold;">Slot Number</td>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${booking.slotNumber}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-weight: bold;">Date</td>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${booking.date}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-weight: bold;">Time</td>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${booking.startTime} - ${booking.endTime}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-weight: bold;">Vehicle Number</td>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${booking.vehicleNumber || 'Not provided'}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-weight: bold;">Status</td>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">${booking.status.toUpperCase()}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb; font-weight: bold;">Total Amount</td>
+              <td style="padding: 8px; border-bottom: 1px solid #e5e7eb;">$${booking.totalAmount.toFixed(2)}</td>
+            </tr>
+          </table>
+          <div style="margin-top: 30px; text-align: center; font-size: 12px; color: #6b7280;">
+            <p>Thank you for choosing ParkifyPro!</p>
+            <p>For any questions, please contact support@parkifypro.com</p>
+          </div>
+        </div>
+      </div>
+    `;
+    
     const opt = {
-      margin: 1,
-      filename: 'parking-bookings.pdf',
+      margin: 10,
+      filename: `booking-${booking.id}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2 },
-      jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
     
     html2pdf().from(element).set(opt).save();
   };
 
-  const getStatusColor = (status: string) => {
+  const filterStatusColor = (status: string) => {
     switch (status) {
       case 'approved':
-        return 'bg-success';
-      case 'pending':
-        return 'bg-pending';
+        return 'bg-green-100 text-green-800';
       case 'rejected':
-        return 'bg-danger';
+        return 'bg-red-100 text-red-800';
       default:
-        return 'bg-gray-500';
+        return 'bg-yellow-100 text-yellow-800';
     }
   };
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Manage Bookings</h1>
-          <Button onClick={printBookings} variant="outline" className="flex items-center gap-2">
-            <Printer className="h-4 w-4" />
-            Print Bookings
-          </Button>
-        </div>
-        
-        <div className="mb-6 grid md:grid-cols-4 gap-4">
-          <div className="md:col-span-2">
-            <Input 
-              placeholder="Search bookings..." 
-              value={searchTerm} 
-              onChange={(e) => setSearchTerm(e.target.value)} 
-            />
-          </div>
-          
-          <div className="md:col-span-2">
-            <Tabs value={filterStatus} onValueChange={setFilterStatus} className="w-full">
-              <TabsList className="w-full">
-                <TabsTrigger value="all" className="flex-1">All</TabsTrigger>
-                <TabsTrigger value="pending" className="flex-1">Pending</TabsTrigger>
-                <TabsTrigger value="approved" className="flex-1">Approved</TabsTrigger>
-                <TabsTrigger value="rejected" className="flex-1">Rejected</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-        </div>
+      <div className="space-y-6">
+        <h1 className="text-3xl font-bold mb-6">All Bookings</h1>
 
-        <div className="space-y-4">
-          {filteredBookings.length === 0 ? (
-            <div className="text-center p-10 bg-gray-50 rounded-lg">
-              <FileText className="h-12 w-12 mx-auto text-gray-400 mb-4" />
-              <h3 className="text-lg font-medium">No bookings found</h3>
-              <p className="text-gray-500 mt-2">Try adjusting your search or filter criteria</p>
-            </div>
-          ) : (
-            filteredBookings.map((booking) => (
+        {bookings.length === 0 ? (
+          <Card>
+            <CardContent className="pt-6">
+              <p className="text-center text-gray-500">No bookings found</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 gap-6">
+            {bookings.map((booking) => (
               <Card key={booking.id}>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
+                <CardHeader className="pb-2">
+                  <div className="flex justify-between items-center">
                     <div>
-                      <CardTitle>{booking.areaName} - Slot #{booking.slotNumber}</CardTitle>
-                      <CardDescription>Booking ID: {booking.id}</CardDescription>
+                      <CardTitle>Booking #{booking.id.substring(booking.id.length - 5)}</CardTitle>
+                      <p className="text-sm text-gray-500">
+                        {booking.date} | {booking.startTime} - {booking.endTime}
+                      </p>
                     </div>
-                    <Badge className={`${getStatusColor(booking.status)} text-white`}>
-                      {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                    <Badge className={filterStatusColor(booking.status)}>
+                      {booking.status.toUpperCase()}
                     </Badge>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">User Details</p>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium">User</p>
                       <p className="text-sm">{booking.userName}</p>
-                      <div className="flex items-center space-x-2">
-                        <Car className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm">{booking.vehicleNumber || 'No vehicle number'}</span>
-                      </div>
                     </div>
-                    
-                    <div className="space-y-2">
-                      <p className="text-sm font-medium">Booking Details</p>
-                      <div className="flex items-center space-x-2">
-                        <MapPin className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm">{booking.areaName} - Slot #{booking.slotNumber}</span>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Clock className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm">{booking.date} | {booking.startTime} - {booking.endTime}</span>
-                      </div>
+                    <div>
+                      <p className="text-sm font-medium">Parking Area</p>
+                      <p className="text-sm">{booking.areaName}</p>
                     </div>
-                    
-                    <div className="flex items-center justify-end space-x-2">
-                      <span className="text-sm font-medium mr-2">Total: ${booking.totalAmount.toFixed(2)}</span>
-                      
-                      <Button 
-                        size="sm" 
-                        variant="outline"
-                        className="bg-blue-500 text-white hover:bg-blue-600"
-                        onClick={() => handleModify(booking)}
-                      >
-                        <Edit className="h-4 w-4 mr-1" /> Modify
-                      </Button>
-                      
-                      {booking.status === 'pending' && (
-                        <>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="bg-success text-white hover:bg-green-600"
-                            onClick={() => handleStatusUpdate(booking.id, 'approved')}
-                          >
-                            <Check className="h-4 w-4 mr-1" /> Approve
-                          </Button>
-                          <Button 
-                            size="sm" 
-                            variant="outline" 
-                            className="bg-danger text-white hover:bg-red-600"
-                            onClick={() => handleStatusUpdate(booking.id, 'rejected')}
-                          >
-                            <X className="h-4 w-4 mr-1" /> Reject
-                          </Button>
-                        </>
-                      )}
+                    <div>
+                      <p className="text-sm font-medium">Slot Number</p>
+                      <p className="text-sm">#{booking.slotNumber}</p>
                     </div>
+                    <div>
+                      <p className="text-sm font-medium">Vehicle Number</p>
+                      <p className="text-sm">{booking.vehicleNumber || 'Not provided'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Total Amount</p>
+                      <p className="text-sm">${booking.totalAmount.toFixed(2)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">Created At</p>
+                      <p className="text-sm">{new Date(booking.createdAt).toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 mt-4">
+                    {booking.status === 'pending' && (
+                      <>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-green-50 text-green-600 hover:bg-green-100"
+                          onClick={() => handleStatusChange(booking.id, 'approved')}
+                        >
+                          <CheckCircle className="mr-2 h-4 w-4" />
+                          Approve
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="bg-red-50 text-red-600 hover:bg-red-100"
+                          onClick={() => handleStatusChange(booking.id, 'rejected')}
+                        >
+                          <XCircle className="mr-2 h-4 w-4" />
+                          Reject
+                        </Button>
+                      </>
+                    )}
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => handleEdit(booking)}
+                    >
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Edit
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => generatePDF(booking)}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      Print PDF
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
-            ))
-          )}
-        </div>
-        
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Modify Booking</DialogTitle>
-              <DialogDescription>
-                Make changes to the booking details.
-              </DialogDescription>
-            </DialogHeader>
-            {selectedBooking && (
-              <div className="space-y-4 py-4">
-                <div className="space-y-2">
-                  <Label htmlFor="slotNumber">Slot Number</Label>
-                  <Input
-                    id="slotNumber"
-                    type="number"
-                    value={modifiedSlotNumber}
-                    onChange={(e) => setModifiedSlotNumber(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  <Select value={modifiedStatus} onValueChange={setModifiedStatus}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="pending">Pending</SelectItem>
-                      <SelectItem value="approved">Approved</SelectItem>
-                      <SelectItem value="rejected">Rejected</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-              <Button onClick={handleSaveModifications}>Save changes</Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-        
-        {/* Hidden section for PDF generation */}
-        <div id="bookings-for-print" className="hidden">
-          <h1 className="text-2xl font-bold mb-4">Parking Bookings Report</h1>
-          <p className="mb-4">Generated on: {new Date().toLocaleDateString()}</p>
-          
-          <table className="w-full border-collapse">
-            <thead>
-              <tr>
-                <th className="border p-2 text-left">ID</th>
-                <th className="border p-2 text-left">User</th>
-                <th className="border p-2 text-left">Area</th>
-                <th className="border p-2 text-left">Slot</th>
-                <th className="border p-2 text-left">Date</th>
-                <th className="border p-2 text-left">Time</th>
-                <th className="border p-2 text-left">Status</th>
-                <th className="border p-2 text-left">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {bookings.map((booking) => (
-                <tr key={booking.id}>
-                  <td className="border p-2">{booking.id}</td>
-                  <td className="border p-2">{booking.userName}</td>
-                  <td className="border p-2">{booking.areaName}</td>
-                  <td className="border p-2">#{booking.slotNumber}</td>
-                  <td className="border p-2">{booking.date}</td>
-                  <td className="border p-2">{booking.startTime} - {booking.endTime}</td>
-                  <td className="border p-2">{booking.status}</td>
-                  <td className="border p-2">${booking.totalAmount.toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+            ))}
+          </div>
+        )}
       </div>
+
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Booking</DialogTitle>
+            <DialogDescription>
+              Make changes to the booking. Click save when you're done.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="area" className="text-right">
+                Parking Area
+              </Label>
+              <div className="col-span-3">
+                <Select 
+                  value={editForm.areaId} 
+                  onValueChange={(value) => setEditForm({...editForm, areaId: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Area" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {parkingAreas.map(area => (
+                      <SelectItem key={area.id} value={area.id}>
+                        {area.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="timeSlot" className="text-right">
+                Time Slot
+              </Label>
+              <div className="col-span-3">
+                <Select 
+                  value={editForm.timeSlotId} 
+                  onValueChange={(value) => setEditForm({...editForm, timeSlotId: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Time Slot" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {timeSlots.map(slot => (
+                      <SelectItem key={slot.id} value={slot.id}>
+                        {slot.startTime} - {slot.endTime}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="date" className="text-right">
+                Date
+              </Label>
+              <Input
+                id="date"
+                type="date"
+                value={editForm.date}
+                onChange={(e) => setEditForm({...editForm, date: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="status" className="text-right">
+                Status
+              </Label>
+              <div className="col-span-3">
+                <Select 
+                  value={editForm.status} 
+                  onValueChange={(value: 'pending' | 'approved' | 'rejected') => setEditForm({...editForm, status: value})}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pending">Pending</SelectItem>
+                    <SelectItem value="approved">Approved</SelectItem>
+                    <SelectItem value="rejected">Rejected</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="vehicleNumber" className="text-right">
+                Vehicle Number
+              </Label>
+              <Input
+                id="vehicleNumber"
+                value={editForm.vehicleNumber}
+                onChange={(e) => setEditForm({...editForm, vehicleNumber: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>Cancel</Button>
+            <Button onClick={handleSaveEdit}>Save Changes</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };

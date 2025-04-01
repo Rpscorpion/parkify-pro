@@ -1,24 +1,26 @@
 
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 
 const Index = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const { user, isLoading } = useAuth();
-
+  
   useEffect(() => {
-    if (!isLoading) {
-      if (user) {
-        navigate('/dashboard');
+    if (user) {
+      if (user.role === 'admin') {
+        navigate('/admin/dashboard');
       } else {
-        navigate('/login');
+        navigate('/dashboard');
       }
+    } else {
+      navigate('/login');
     }
-  }, [user, isLoading, navigate]);
-
+  }, [user, navigate]);
+  
   return (
-    <div className="min-h-screen flex items-center justify-center">
+    <div className="flex items-center justify-center min-h-screen">
       <div className="w-16 h-16 border-4 border-t-primary border-r-transparent border-b-primary border-l-transparent rounded-full animate-spin"></div>
     </div>
   );

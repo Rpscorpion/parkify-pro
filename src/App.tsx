@@ -12,6 +12,7 @@ import Register from "@/pages/Register";
 import Dashboard from "@/pages/Dashboard";
 import Bookings from "@/pages/Bookings";
 import AdminBookings from "@/pages/admin/AdminBookings";
+import AdminDashboard from "@/pages/admin/AdminDashboard";
 import UserManagement from "@/pages/admin/UserManagement";
 import NotFound from "./pages/NotFound";
 import Index from "./pages/Index";
@@ -44,6 +45,11 @@ const App = () => (
               } />
               
               {/* Admin Routes */}
+              <Route path="/admin/dashboard" element={
+                <ProtectedRoute requireAdmin={true}>
+                  <AdminDashboard />
+                </ProtectedRoute>
+              } />
               <Route path="/admin/bookings" element={
                 <ProtectedRoute requireAdmin={true}>
                   <AdminBookings />

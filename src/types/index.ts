@@ -46,3 +46,12 @@ export interface Booking {
   totalAmount: number;
   vehicleNumber?: string;
 }
+
+export interface BookingStatistics {
+  totalBookings: number;
+  pending: number;
+  approved: number;
+  rejected: number;
+  bookingsByDay: { date: string; count: number }[];
+  bookingsByMonth: { month: string; count: number }[];
+}

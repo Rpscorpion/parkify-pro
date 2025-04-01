@@ -13,18 +13,12 @@ import { BarChart, Bar, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, 
 import { ParkingArea, TimeSlot } from '@/types';
 import { CircleCheck, CircleX, Clock, Users, Car, CalendarRange } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
-import { useNavigate } from 'react-router-dom';
-import BookingListPDF from '@/components/BookingListPDF';
 
 const AdminDashboard = () => {
   const { parkingAreas, timeSlots, addParkingArea, addTimeSlot, getBookingsByStatus, getBookingStatistics } = useParking();
   const stats = getBookingStatistics();
-  const navigate = useNavigate();
   const [isAddAreaOpen, setIsAddAreaOpen] = useState(false);
   const [isAddTimeSlotOpen, setIsAddTimeSlotOpen] = useState(false);
-  const [isShowingPendingDialog, setIsShowingPendingDialog] = useState(false);
-  const [isShowingApprovedDialog, setIsShowingApprovedDialog] = useState(false);
-  const [isShowingRejectedDialog, setIsShowingRejectedDialog] = useState(false);
   const [newArea, setNewArea] = useState<Omit<ParkingArea, 'id'>>({
     name: '',
     location: '',
@@ -37,51 +31,16 @@ const AdminDashboard = () => {
     date: ''
   });
   const [activeTab, setActiveTab] = useState('daily');
-  const [chartTimeRange, setChartTimeRange] = useState<'day' | 'week' | 'month'>('day');
   
   const pendingBookings = getBookingsByStatus('pending');
   const approvedBookings = getBookingsByStatus('approved');
   const rejectedBookings = getBookingsByStatus('rejected');
   
-  // Filter status data based on time range
-  const getFilteredStatusData = (range: 'day' | 'week' | 'month') => {
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    
-    let startDate: Date;
-    
-    switch(range) {
-      case 'week':
-        // Get the first day of the week (Sunday)
-        startDate = new Date(today);
-        startDate.setDate(today.getDate() - today.getDay());
-        break;
-      case 'month':
-        // Get the first day of the month
-        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
-        break;
-      default: // day
-        startDate = today;
-        break;
-    }
-    
-    const filteredBookings = stats.bookings.filter(booking => {
-      const bookingDate = new Date(booking.date);
-      return bookingDate >= startDate && bookingDate <= now;
-    });
-    
-    const pending = filteredBookings.filter(b => b.status === 'pending').length;
-    const approved = filteredBookings.filter(b => b.status === 'approved').length;
-    const rejected = filteredBookings.filter(b => b.status === 'rejected').length;
-    
-    return [
-      { name: 'Pending', value: pending, color: '#f59e0b' },
-      { name: 'Approved', value: approved, color: '#10b981' },
-      { name: 'Rejected', value: rejected, color: '#ef4444' },
-    ];
-  };
-  
-  const statusData = getFilteredStatusData(chartTimeRange);
+  const statusData = [
+    { name: 'Pending', value: stats.pending, color: '#f59e0b' },
+    { name: 'Approved', value: stats.approved, color: '#10b981' },
+    { name: 'Rejected', value: stats.rejected, color: '#ef4444' },
+  ];
   
   const handleAddArea = async () => {
     await addParkingArea(newArea);
@@ -171,7 +130,7 @@ const AdminDashboard = () => {
         
         {/* Stats Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsShowingPendingDialog(true)}>
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Total Bookings
@@ -185,7 +144,7 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
           
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsShowingPendingDialog(true)}>
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Pending
@@ -199,7 +158,7 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
           
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsShowingApprovedDialog(true)}>
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Approved
@@ -213,7 +172,7 @@ const AdminDashboard = () => {
             </CardContent>
           </Card>
           
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => setIsShowingRejectedDialog(true)}>
+          <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Rejected
@@ -233,15 +192,7 @@ const AdminDashboard = () => {
           <Card>
             <CardHeader>
               <CardTitle>Booking Status Distribution</CardTitle>
-              <CardDescription>
-                <Tabs defaultValue="day" value={chartTimeRange} onValueChange={(value: 'day' | 'week' | 'month') => setChartTimeRange(value as 'day' | 'week' | 'month')}>
-                  <TabsList>
-                    <TabsTrigger value="day">Daily</TabsTrigger>
-                    <TabsTrigger value="week">Weekly</TabsTrigger>
-                    <TabsTrigger value="month">Monthly</TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </CardDescription>
+              <CardDescription>Overview of all booking statuses</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="h-[300px]">
@@ -309,9 +260,82 @@ const AdminDashboard = () => {
           </Card>
         </div>
         
-        {/* Booking Lists for Reference (hidden by default) */}
-        <div className="hidden">
-          {/* This section is kept as a reference but not displayed */}
+        {/* Booking Lists */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Pending Bookings</CardTitle>
+              <CardDescription>{pendingBookings.length} bookings awaiting approval</CardDescription>
+            </CardHeader>
+            <CardContent className="max-h-[400px] overflow-auto">
+              {pendingBookings.length === 0 ? (
+                <p className="text-center text-gray-500 py-4">No pending bookings</p>
+              ) : (
+                <div className="space-y-4">
+                  {pendingBookings.map(booking => (
+                    <div key={booking.id} className="border-b pb-3 last:border-0">
+                      <p className="font-medium">{booking.userName}</p>
+                      <p className="text-sm text-muted-foreground">{booking.areaName} - #{booking.slotNumber}</p>
+                      <div className="flex items-center text-xs text-muted-foreground mt-1">
+                        <CalendarRange className="h-3 w-3 mr-1" />
+                        {booking.date} | {booking.startTime} - {booking.endTime}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Approved Bookings</CardTitle>
+              <CardDescription>{approvedBookings.length} confirmed bookings</CardDescription>
+            </CardHeader>
+            <CardContent className="max-h-[400px] overflow-auto">
+              {approvedBookings.length === 0 ? (
+                <p className="text-center text-gray-500 py-4">No approved bookings</p>
+              ) : (
+                <div className="space-y-4">
+                  {approvedBookings.map(booking => (
+                    <div key={booking.id} className="border-b pb-3 last:border-0">
+                      <p className="font-medium">{booking.userName}</p>
+                      <p className="text-sm text-muted-foreground">{booking.areaName} - #{booking.slotNumber}</p>
+                      <div className="flex items-center text-xs text-muted-foreground mt-1">
+                        <CalendarRange className="h-3 w-3 mr-1" />
+                        {booking.date} | {booking.startTime} - {booking.endTime}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-lg">Rejected Bookings</CardTitle>
+              <CardDescription>{rejectedBookings.length} declined bookings</CardDescription>
+            </CardHeader>
+            <CardContent className="max-h-[400px] overflow-auto">
+              {rejectedBookings.length === 0 ? (
+                <p className="text-center text-gray-500 py-4">No rejected bookings</p>
+              ) : (
+                <div className="space-y-4">
+                  {rejectedBookings.map(booking => (
+                    <div key={booking.id} className="border-b pb-3 last:border-0">
+                      <p className="font-medium">{booking.userName}</p>
+                      <p className="text-sm text-muted-foreground">{booking.areaName} - #{booking.slotNumber}</p>
+                      <div className="flex items-center text-xs text-muted-foreground mt-1">
+                        <CalendarRange className="h-3 w-3 mr-1" />
+                        {booking.date} | {booking.startTime} - {booking.endTime}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
       
@@ -425,147 +449,6 @@ const AdminDashboard = () => {
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsAddTimeSlotOpen(false)}>Cancel</Button>
             <Button onClick={handleAddTimeSlot}>Add Time Slot</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Pending Bookings Dialog */}
-      <Dialog open={isShowingPendingDialog} onOpenChange={setIsShowingPendingDialog}>
-        <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Pending Bookings</DialogTitle>
-            <DialogDescription>
-              All bookings awaiting approval
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-4">
-            {pendingBookings.length === 0 ? (
-              <p className="text-center text-gray-500 py-4">No pending bookings</p>
-            ) : (
-              <>
-                <div className="space-y-4">
-                  {pendingBookings.map(booking => (
-                    <div key={booking.id} className="border rounded-md p-3 shadow-sm">
-                      <p className="font-medium">{booking.userName}</p>
-                      <p className="text-sm text-muted-foreground">{booking.areaName} - #{booking.slotNumber}</p>
-                      <div className="flex items-center text-xs text-muted-foreground mt-1">
-                        <CalendarRange className="h-3 w-3 mr-1" />
-                        {booking.date} | {booking.startTime} - {booking.endTime}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4">
-                  <BookingListPDF bookings={pendingBookings} />
-                </div>
-              </>
-            )}
-          </div>
-          
-          <DialogFooter>
-            <Button 
-              onClick={() => {
-                setIsShowingPendingDialog(false);
-                navigate('/admin/bookings');
-              }}
-            >
-              Manage All Bookings
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Approved Bookings Dialog */}
-      <Dialog open={isShowingApprovedDialog} onOpenChange={setIsShowingApprovedDialog}>
-        <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Approved Bookings</DialogTitle>
-            <DialogDescription>
-              All confirmed bookings
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-4">
-            {approvedBookings.length === 0 ? (
-              <p className="text-center text-gray-500 py-4">No approved bookings</p>
-            ) : (
-              <>
-                <div className="space-y-4">
-                  {approvedBookings.map(booking => (
-                    <div key={booking.id} className="border rounded-md p-3 shadow-sm">
-                      <p className="font-medium">{booking.userName}</p>
-                      <p className="text-sm text-muted-foreground">{booking.areaName} - #{booking.slotNumber}</p>
-                      <div className="flex items-center text-xs text-muted-foreground mt-1">
-                        <CalendarRange className="h-3 w-3 mr-1" />
-                        {booking.date} | {booking.startTime} - {booking.endTime}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4">
-                  <BookingListPDF bookings={approvedBookings} />
-                </div>
-              </>
-            )}
-          </div>
-          
-          <DialogFooter>
-            <Button 
-              onClick={() => {
-                setIsShowingApprovedDialog(false);
-                navigate('/admin/bookings');
-              }}
-            >
-              Manage All Bookings
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      
-      {/* Rejected Bookings Dialog */}
-      <Dialog open={isShowingRejectedDialog} onOpenChange={setIsShowingRejectedDialog}>
-        <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Rejected Bookings</DialogTitle>
-            <DialogDescription>
-              All declined bookings
-            </DialogDescription>
-          </DialogHeader>
-          
-          <div className="py-4">
-            {rejectedBookings.length === 0 ? (
-              <p className="text-center text-gray-500 py-4">No rejected bookings</p>
-            ) : (
-              <>
-                <div className="space-y-4">
-                  {rejectedBookings.map(booking => (
-                    <div key={booking.id} className="border rounded-md p-3 shadow-sm">
-                      <p className="font-medium">{booking.userName}</p>
-                      <p className="text-sm text-muted-foreground">{booking.areaName} - #{booking.slotNumber}</p>
-                      <div className="flex items-center text-xs text-muted-foreground mt-1">
-                        <CalendarRange className="h-3 w-3 mr-1" />
-                        {booking.date} | {booking.startTime} - {booking.endTime}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-4">
-                  <BookingListPDF bookings={rejectedBookings} />
-                </div>
-              </>
-            )}
-          </div>
-          
-          <DialogFooter>
-            <Button 
-              onClick={() => {
-                setIsShowingRejectedDialog(false);
-                navigate('/admin/bookings');
-              }}
-            >
-              Manage All Bookings
-            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

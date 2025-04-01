@@ -23,6 +23,7 @@ interface ParkingContextType {
     pending: number;
     approved: number;
     rejected: number;
+    bookings: Booking[];
     bookingsByDay: { date: string; count: number }[];
     bookingsByMonth: { month: string; count: number }[];
   };
@@ -273,6 +274,7 @@ export const ParkingProvider: React.FC<{ children: React.ReactNode }> = ({ child
       pending,
       approved,
       rejected,
+      bookings, // Include all bookings for filtering
       bookingsByDay,
       bookingsByMonth
     };

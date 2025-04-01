@@ -10,8 +10,18 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Booking } from '@/types';
-import { CalendarIcon, CheckCircle, XCircle, Pencil } from 'lucide-react';
-import html2pdf from 'html2pdf.js';
+import { CheckCircle, XCircle, Pencil, CalendarIcon } from 'lucide-react';
+import BookingListPDF from '@/components/BookingListPDF';
+import BookingPDF from '@/components/BookingPDF';
+import {
+  Table,
+  TableBody,
+  TableCaption,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from '@/components/ui/table';
 
 const AdminBookings = () => {
   const { bookings, parkingAreas, timeSlots, updateBookingStatus, updateBooking } = useParking();
@@ -140,7 +150,10 @@ const AdminBookings = () => {
   return (
     <Layout>
       <div className="space-y-6">
-        <h1 className="text-3xl font-bold mb-6">All Bookings</h1>
+        <div className="flex justify-between items-center mb-6">
+          <h1 className="text-3xl font-bold">All Bookings</h1>
+          <BookingListPDF bookings={bookings} />
+        </div>
 
         {bookings.length === 0 ? (
           <Card>
@@ -149,94 +162,83 @@ const AdminBookings = () => {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 gap-6">
-            {bookings.map((booking) => (
-              <Card key={booking.id}>
-                <CardHeader className="pb-2">
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <CardTitle>Booking #{booking.id.substring(booking.id.length - 5)}</CardTitle>
-                      <p className="text-sm text-gray-500">
-                        {booking.date} | {booking.startTime} - {booking.endTime}
-                      </p>
-                    </div>
-                    <Badge className={filterStatusColor(booking.status)}>
-                      {booking.status.toUpperCase()}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div>
-                      <p className="text-sm font-medium">User</p>
-                      <p className="text-sm">{booking.userName}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Parking Area</p>
-                      <p className="text-sm">{booking.areaName}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Slot Number</p>
-                      <p className="text-sm">#{booking.slotNumber}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Vehicle Number</p>
-                      <p className="text-sm">{booking.vehicleNumber || 'Not provided'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Total Amount</p>
-                      <p className="text-sm">${booking.totalAmount.toFixed(2)}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">Created At</p>
-                      <p className="text-sm">{new Date(booking.createdAt).toLocaleString()}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-2 mt-4">
-                    {booking.status === 'pending' && (
-                      <>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="bg-green-50 text-green-600 hover:bg-green-100"
-                          onClick={() => handleStatusChange(booking.id, 'approved')}
-                        >
-                          <CheckCircle className="mr-2 h-4 w-4" />
-                          Approve
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="bg-red-50 text-red-600 hover:bg-red-100"
-                          onClick={() => handleStatusChange(booking.id, 'rejected')}
-                        >
-                          <XCircle className="mr-2 h-4 w-4" />
-                          Reject
-                        </Button>
-                      </>
-                    )}
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => handleEdit(booking)}
-                    >
-                      <Pencil className="mr-2 h-4 w-4" />
-                      Edit
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => generatePDF(booking)}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      Print PDF
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Parking Area</TableHead>
+                    <TableHead>Slot</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Time</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {bookings.map((booking) => (
+                    <TableRow key={booking.id}>
+                      <TableCell>{booking.userName}</TableCell>
+                      <TableCell>{booking.areaName}</TableCell>
+                      <TableCell>#{booking.slotNumber}</TableCell>
+                      <TableCell>{booking.date}</TableCell>
+                      <TableCell>{booking.startTime} - {booking.endTime}</TableCell>
+                      <TableCell>${booking.totalAmount.toFixed(2)}</TableCell>
+                      <TableCell>
+                        <Badge className={filterStatusColor(booking.status)}>
+                          {booking.status.toUpperCase()}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {booking.status === 'pending' && (
+                            <>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="bg-green-50 text-green-600 hover:bg-green-100"
+                                onClick={() => handleStatusChange(booking.id, 'approved')}
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                                <span className="sr-only">Approve</span>
+                              </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="bg-red-50 text-red-600 hover:bg-red-100"
+                                onClick={() => handleStatusChange(booking.id, 'rejected')}
+                              >
+                                <XCircle className="h-4 w-4" />
+                                <span className="sr-only">Reject</span>
+                              </Button>
+                            </>
+                          )}
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleEdit(booking)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                            <span className="sr-only">Edit</span>
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => generatePDF(booking)}
+                          >
+                            <CalendarIcon className="h-4 w-4" />
+                            <span className="sr-only">PDF</span>
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
         )}
       </div>
 

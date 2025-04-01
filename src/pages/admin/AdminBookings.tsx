@@ -13,6 +13,7 @@ import { Booking } from '@/types';
 import { CheckCircle, XCircle, Pencil, CalendarIcon } from 'lucide-react';
 import BookingListPDF from '@/components/BookingListPDF';
 import BookingPDF from '@/components/BookingPDF';
+import html2pdf from 'html2pdf.js';
 import {
   Table,
   TableBody,

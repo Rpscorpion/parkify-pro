@@ -10,7 +10,7 @@ import { LogIn } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Register = () => {
-  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -32,7 +32,7 @@ const Register = () => {
     setIsSubmitting(true);
     
     try {
-      await register(name, email, password);
+      await register(username, email, password);
       toast.success('Registration successful! Please log in to continue.');
       navigate('/login');
     } catch (error) {
@@ -57,13 +57,13 @@ const Register = () => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Full Name</Label>
+              <Label htmlFor="username">Username</Label>
               <Input
-                id="name"
+                id="username"
                 type="text"
-                placeholder="John Doe"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                placeholder="johndoe"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
               />
             </div>

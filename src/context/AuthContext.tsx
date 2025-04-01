@@ -6,9 +6,10 @@ import { toast } from "sonner";
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (name: string, email: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
+  register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
+  getAllUsers: () => Array<any>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -18,16 +19,20 @@ const INITIAL_MOCK_USERS = [
   {
     id: '1',
     email: 'admin@parkify.com',
-    password: 'admin123',
+    username: 'admin',
+    password: 'admin',
     name: 'Admin User',
-    role: 'admin' as const
+    role: 'admin' as const,
+    createdAt: '2023-01-15'
   },
   {
     id: '2',
     email: 'user@example.com',
+    username: 'user',
     password: 'user123',
     name: 'Regular User',
-    role: 'user' as const
+    role: 'user' as const,
+    createdAt: '2023-01-20'
   }
 ];
 
@@ -52,27 +57,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(false);
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (username: string, password: string) => {
     setIsLoading(true);
     try {
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 1000));
 
       // First check initial mock users
-      let foundUser = INITIAL_MOCK_USERS.find(u => u.email === email && u.password === password);
+      let foundUser = INITIAL_MOCK_USERS.find(u => u.username === username && u.password === password);
       
       // If not found in initial users, check registered users
       if (!foundUser && registeredUsers.length > 0) {
-        foundUser = registeredUsers.find(u => u.email === email && u.password === password);
+        foundUser = registeredUsers.find(u => u.username === username && u.password === password);
       }
       
       if (foundUser) {
-        const { password, ...userWithoutPassword } = foundUser;
+        const { password: _, ...userWithoutPassword } = foundUser;
         setUser(userWithoutPassword);
         localStorage.setItem('parkifyUser', JSON.stringify(userWithoutPassword));
-        toast.success(`Welcome back, ${userWithoutPassword.name}!`);
+        toast.success(`Welcome back, ${userWithoutPassword.name || userWithoutPassword.username}!`);
       } else {
-        throw new Error('Invalid email or password');
+        throw new Error('Invalid username or password');
       }
     } catch (error) {
       toast.error((error as Error).message || 'Login failed');
@@ -82,29 +87,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (name: string, email: string, password: string) => {
+  const register = async (username: string, email: string, password: string) => {
     setIsLoading(true);
     try {
       // Simulate API call delay
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Check if email already exists in initial mock users
-      const existsInMock = INITIAL_MOCK_USERS.some(u => u.email === email);
+      // Check if email or username already exists in initial mock users
+      const existsInMockEmail = INITIAL_MOCK_USERS.some(u => u.email === email);
+      const existsInMockUsername = INITIAL_MOCK_USERS.some(u => u.username === username);
       
-      // Check if email already exists in registered users
-      const existsInRegistered = registeredUsers.some(u => u.email === email);
+      // Check if email or username already exists in registered users
+      const existsInRegisteredEmail = registeredUsers.some(u => u.email === email);
+      const existsInRegisteredUsername = registeredUsers.some(u => u.username === username);
       
-      if (existsInMock || existsInRegistered) {
+      if (existsInMockEmail || existsInRegisteredEmail) {
         throw new Error('Email already in use');
+      }
+      
+      if (existsInMockUsername || existsInRegisteredUsername) {
+        throw new Error('Username already taken');
       }
 
       // Create new user
       const newUser = {
         id: `user-${Date.now()}`,
         email,
+        username,
         password,
-        name,
-        role: 'user' as const
+        name: username,
+        role: 'user' as const,
+        createdAt: new Date().toISOString().split('T')[0]
       };
 
       // Add to registered users
@@ -114,12 +127,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Store the updated users list
       localStorage.setItem('parkifyRegisteredUsers', JSON.stringify(updatedUsers));
       
-      // Store the user without password for current session
-      const { password: _, ...userWithoutPassword } = newUser;
-      setUser(userWithoutPassword);
-      localStorage.setItem('parkifyUser', JSON.stringify(userWithoutPassword));
+      toast.success('Registration successful! Please login to continue.');
       
-      toast.success('Registration successful!');
+      // We don't auto-login the user anymore, they need to go to login page
     } catch (error) {
       toast.error((error as Error).message || 'Registration failed');
       throw error;
@@ -133,9 +143,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
     toast.success('Logged out successfully');
   };
+  
+  const getAllUsers = () => {
+    // Filter out password from each user before returning
+    const allUsers = [
+      ...INITIAL_MOCK_USERS.map(({ password, ...rest }) => rest),
+      ...registeredUsers.map(({ password, ...rest }) => rest)
+    ];
+    
+    return allUsers;
+  };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, register, logout, getAllUsers }}>
       {children}
     </AuthContext.Provider>
   );

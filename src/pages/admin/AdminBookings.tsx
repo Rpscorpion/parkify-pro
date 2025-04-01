@@ -7,13 +7,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
-import { Check, X, FileText, Printer, MapPin, Clock, Car } from 'lucide-react';
+import { Check, X, FileText, Printer, MapPin, Clock, Car, Edit } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 const AdminBookings = () => {
-  const { getAllBookings, updateBookingStatus } = useParking();
+  const { getAllBookings, updateBookingStatus, updateBooking } = useParking();
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [selectedBooking, setSelectedBooking] = useState<any>(null);
+  const [modifiedSlotNumber, setModifiedSlotNumber] = useState('');
+  const [modifiedStatus, setModifiedStatus] = useState('');
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   
   const bookings = getAllBookings();
   
@@ -34,6 +49,28 @@ const AdminBookings = () => {
       await updateBookingStatus(id, status);
     } catch (error) {
       console.error('Status update failed:', error);
+    }
+  };
+  
+  const handleModify = (booking: any) => {
+    setSelectedBooking(booking);
+    setModifiedSlotNumber(booking.slotNumber.toString());
+    setModifiedStatus(booking.status);
+    setIsDialogOpen(true);
+  };
+  
+  const handleSaveModifications = async () => {
+    if (selectedBooking) {
+      try {
+        await updateBooking(selectedBooking.id, {
+          ...selectedBooking,
+          slotNumber: parseInt(modifiedSlotNumber),
+          status: modifiedStatus as 'pending' | 'approved' | 'rejected'
+        });
+        setIsDialogOpen(false);
+      } catch (error) {
+        console.error('Modification failed:', error);
+      }
     }
   };
   
@@ -144,6 +181,15 @@ const AdminBookings = () => {
                     <div className="flex items-center justify-end space-x-2">
                       <span className="text-sm font-medium mr-2">Total: ${booking.totalAmount.toFixed(2)}</span>
                       
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        className="bg-blue-500 text-white hover:bg-blue-600"
+                        onClick={() => handleModify(booking)}
+                      >
+                        <Edit className="h-4 w-4 mr-1" /> Modify
+                      </Button>
+                      
                       {booking.status === 'pending' && (
                         <>
                           <Button 
@@ -171,6 +217,47 @@ const AdminBookings = () => {
             ))
           )}
         </div>
+        
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Modify Booking</DialogTitle>
+              <DialogDescription>
+                Make changes to the booking details.
+              </DialogDescription>
+            </DialogHeader>
+            {selectedBooking && (
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label htmlFor="slotNumber">Slot Number</Label>
+                  <Input
+                    id="slotNumber"
+                    type="number"
+                    value={modifiedSlotNumber}
+                    onChange={(e) => setModifiedSlotNumber(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status">Status</Label>
+                  <Select value={modifiedStatus} onValueChange={setModifiedStatus}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="approved">Approved</SelectItem>
+                      <SelectItem value="rejected">Rejected</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+              <Button onClick={handleSaveModifications}>Save changes</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
         
         {/* Hidden section for PDF generation */}
         <div id="bookings-for-print" className="hidden">

@@ -9,7 +9,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import { UserPlus } from 'lucide-react';
 
 const Login = () => {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
@@ -20,7 +20,7 @@ const Login = () => {
     setIsSubmitting(true);
     
     try {
-      await login(email, password);
+      await login(username, password);
       navigate('/dashboard');
     } catch (error) {
       console.error('Login failed:', error);
@@ -43,13 +43,13 @@ const Login = () => {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="username">Username</Label>
               <Input
-                id="email"
-                type="email"
-                placeholder="name@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="username"
+                type="text"
+                placeholder="johndoe"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 required
               />
             </div>
@@ -88,8 +88,7 @@ const Login = () => {
         </CardFooter>
         <div className="p-4 bg-gray-50 rounded-b-lg">
           <p className="text-xs text-center text-gray-500">Demo Credentials:</p>
-          <p className="text-xs text-center text-gray-500">Admin: admin@parkify.com / admin123</p>
-          <p className="text-xs text-center text-gray-500">User: user@example.com / user123</p>
+          <p className="text-xs text-center text-gray-500">Admin: admin / admin</p>
         </div>
       </Card>
     </div>

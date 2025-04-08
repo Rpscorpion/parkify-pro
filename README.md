@@ -2,7 +2,7 @@
 
 ## Project info
 
-This is a project that have to use parking vilicles that through Online.It help to get slot that our ava
+This is a project that have to use parking vehicles that through Online pllatform.It help to get slot that our availability
 
 ## How can I edit this code?
 
